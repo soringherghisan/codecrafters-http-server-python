@@ -4,10 +4,50 @@ socket.accept()
      The return value is a pair (conn, address) where conn is a new socket object usable to send and receive data
       on the connection, and address is the address bound to the socket on the other end of the connection.
 
+
+Here's what the contents of a HTTP request look like:
+    GET /index.html HTTP/1.1
+    Host: localhost:4221
+    User-Agent: curl/7.64.1
+
 """
 
 # Uncomment this to pass the first stage
 import socket
+
+RESPONSE_LINE_200 = "HTTP/1.1 200 OK\r\n\r\n"
+RESPONSE_LINE_404 = "HTTP/1.1 404 Not Found\r\n\r\n"
+#
+CONTENT_TYPE_HEADER = "Content-Type: text/plain"
+
+
+def parse_request(received_data: bytes) -> tuple[str, str, str]:
+    decoded = received_data.decode()
+    lines = decoded.split("\r\n")
+    method, path, version = lines[0].split()
+    return method, path, version
+
+
+def extract_string_from_path(path: str) -> str:
+    """
+    index 0 == /
+    find the next '/' and what's after it is the string we're looking for
+    """
+    str_index = path.index("/", 1) + 1
+    target = path[str_index:]
+    return target
+
+
+def build_response(response_lines: list, body: str = None) -> str:
+    """
+    :param response_lines: a list containing the strings: response line and headers, in order
+    :param body: a string with the body of the response ; optional
+    :return: a str with the response, properly formatted , ready to be encoded and sent
+    """
+    response = "\r\n".join(response_lines)
+    if body:
+        response += f"\r\n\r\n{body}"
+    return response
 
 
 def main():
@@ -19,19 +59,17 @@ def main():
     client_socket, client_addr = server_socket.accept()  # wait for client
     print(f"Connection from {client_addr}")
 
-    # read data from connection
-    received_data = client_socket.recv(4096)
-    print(f"Received data {received_data}")
+    with client_socket:
+        # read data from connection
+        received_data = client_socket.recv(4096)
+        print(f"Received data {received_data}\n")
 
-    # parse received data & respond accordingly
-    parsed_request = received_data.decode()
-    parsed_request = parsed_request.split("\r\n")
-    parsed_path = parsed_request[0].split()[1]
-    if parsed_path == "/":
-        response = b"HTTP/1.1 200 OK\r\n\r\n"
-    else:
-        response = b"HTTP/1.1 404 Not Found\r\n\r\n"
-    client_socket.send(response)
+        # parse received data & respond accordingly
+        method, path, version = parse_request(received_data)
+        path_string = extract_string_from_path(path)
+        response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
+                                  path_string)
+        client_socket.sendall(response.encode())
 
 
 if __name__ == "__main__":
