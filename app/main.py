@@ -19,6 +19,7 @@ import os
 import sys
 
 RESPONSE_LINE_200 = "HTTP/1.1 200 OK"
+RESPONSE_LINE_201_WITH_DELIMITER = "HTTP/1.1 201 Created\r\n\r\n"
 RESPONSE_LINE_200_WITH_DELIMITER = "HTTP/1.1 200 OK\r\n\r\n"
 RESPONSE_LINE_404 = "HTTP/1.1 404 Not Found\r\n\r\n"
 #
@@ -26,12 +27,16 @@ CONTENT_TYPE_TEXT_PLAIN_HEADER = "Content-Type: text/plain"
 CONTENT_TYPE_OCTET_STREAM_HEADER = "Content-Type: application/octet-stream"
 
 
-def parse_request(received_data: bytes) -> tuple[str, str, str, list]:
+def parse_request(received_data: bytes) -> tuple[str, str, str, list, str | None]:
     decoded = received_data.decode()
-    lines = decoded.split("\r\n")
+    # Splitting request into headers and body based on the first occurrence of "\r\n\r\n"
+    header_part, separator, body_part = decoded.partition("\r\n\r\n")
+    lines = header_part.split("\r\n")
     method, path, version = lines[0].split()
     headers = lines[1:]
-    return method, path, version, headers
+    # The body will remain None if not found
+    body = body_part if separator else None
+    return method, path, version, headers, body
 
 
 def extract_string_from_path(path: str) -> str:
@@ -65,7 +70,7 @@ def handle_client_connection(client_socket, client_addr, _dir):
         print(f"Received data {received_data}\n")
 
         # parse received data & respond accordingly
-        method, path, version, headers = parse_request(received_data)
+        method, path, version, headers, body = parse_request(received_data)
         if path == "/":
             response = RESPONSE_LINE_200_WITH_DELIMITER
         elif "echo" in path:
@@ -81,6 +86,14 @@ def handle_client_connection(client_socket, client_addr, _dir):
                         [RESPONSE_LINE_200, CONTENT_TYPE_TEXT_PLAIN_HEADER, f"Content-Length: {len(agent)}"],
                         agent)
                     break
+        elif method == "POST":
+            response = RESPONSE_LINE_404
+            if _dir and "files" in path:
+                file_name = extract_string_from_path(path)
+                file_path = os.path.join(_dir, file_name)
+                with open(file_path, "w") as f:
+                    f.write(body)
+                response = RESPONSE_LINE_201_WITH_DELIMITER
         elif _dir and "files" in path:
             file_name = extract_string_from_path(path)
             file_path = os.path.join(_dir, file_name)
@@ -112,8 +125,6 @@ def main(_dir=None):
     finally:
         server_socket.close()
 
-
-##
 
 if __name__ == "__main__":
     _dir = None
