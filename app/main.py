@@ -15,12 +15,15 @@ Here's what the contents of a HTTP request look like:
 # Uncomment this to pass the first stage
 import socket
 import threading
+import os
+import sys
 
 RESPONSE_LINE_200 = "HTTP/1.1 200 OK"
 RESPONSE_LINE_200_WITH_DELIMITER = "HTTP/1.1 200 OK\r\n\r\n"
 RESPONSE_LINE_404 = "HTTP/1.1 404 Not Found\r\n\r\n"
 #
-CONTENT_TYPE_HEADER = "Content-Type: text/plain"
+CONTENT_TYPE_TEXT_PLAIN_HEADER = "Content-Type: text/plain"
+CONTENT_TYPE_OCTET_STREAM_HEADER = "Content-Type: application/octet-stream"
 
 
 def parse_request(received_data: bytes) -> tuple[str, str, str, list]:
@@ -53,7 +56,7 @@ def build_response(response_lines: list, body: str = None) -> str:
     return response
 
 
-def handle_client_connection(client_socket, client_addr):
+def handle_client_connection(client_socket, client_addr, _dir):
     print(f"Connection from {client_addr}")
 
     with client_socket:
@@ -67,30 +70,41 @@ def handle_client_connection(client_socket, client_addr):
             response = RESPONSE_LINE_200_WITH_DELIMITER
         elif "echo" in path:
             path_string = extract_string_from_path(path)
-            response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
-                                      path_string)
+            response = build_response(
+                [RESPONSE_LINE_200, CONTENT_TYPE_TEXT_PLAIN_HEADER, f"Content-Length: {len(path_string)}"],
+                path_string)
         elif "user-agent" in path:
             for header in headers:
                 if "user-agent" in header.lower():
                     agent = header.split(":")[-1].strip()
                     response = build_response(
-                        [RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(agent)}"],
+                        [RESPONSE_LINE_200, CONTENT_TYPE_TEXT_PLAIN_HEADER, f"Content-Length: {len(agent)}"],
                         agent)
                     break
+        elif _dir and "files" in path:
+            file_name = extract_string_from_path(path)
+            file_path = os.path.join(_dir, file_name)
+            response = RESPONSE_LINE_404
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                with open(file_path, "r") as f:
+                    contents = f.read()
+                    response = build_response(
+                        [RESPONSE_LINE_200, CONTENT_TYPE_OCTET_STREAM_HEADER, f"Content-Length: {len(contents)}"],
+                        contents)
         else:
             response = RESPONSE_LINE_404
 
         client_socket.sendall(response.encode())
 
 
-def main():
+def main(_dir=None):
     server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
     print("Server has started...")
 
     try:
         while True:
             client_socket, client_addr = server_socket.accept()  # Wait for client
-            client_thread = threading.Thread(target=handle_client_connection, args=(client_socket, client_addr),
+            client_thread = threading.Thread(target=handle_client_connection, args=(client_socket, client_addr, _dir),
                                              daemon=True)
             client_thread.start()
     except KeyboardInterrupt:
@@ -102,4 +116,11 @@ def main():
 ##
 
 if __name__ == "__main__":
-    main()
+    _dir = None
+    args = sys.argv
+    for idx, arg in enumerate(args):
+        if arg == "--directory":
+            _dir = args[idx + 1]
+            break
+
+    main(_dir)
