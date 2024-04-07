@@ -69,11 +69,13 @@ def main():
         method, path, version = parse_request(received_data)
         if path == "/":
             response = RESPONSE_LINE_200_WITH_DELIMITER
-        else:
+        elif "echo" in path:
             path_string = extract_string_from_path(path)
             response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
                                       path_string)
             print(response)
+        else:
+            response = RESPONSE_LINE_404
 
         client_socket.sendall(response.encode())
 
