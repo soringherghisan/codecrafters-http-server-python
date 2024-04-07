@@ -66,10 +66,14 @@ def main():
 
         # parse received data & respond accordingly
         method, path, version = parse_request(received_data)
-        path_string = extract_string_from_path(path)
-        response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
-                                  path_string)
-        print(response)
+        if path == "/":
+            response = RESPONSE_LINE_200
+        else:
+            path_string = extract_string_from_path(path)
+            response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
+                                      path_string)
+            print(response)
+
         client_socket.sendall(response.encode())
 
 
