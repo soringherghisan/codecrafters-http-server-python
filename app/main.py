@@ -14,6 +14,7 @@ Here's what the contents of a HTTP request look like:
 
 # Uncomment this to pass the first stage
 import socket
+import threading
 
 RESPONSE_LINE_200 = "HTTP/1.1 200 OK"
 RESPONSE_LINE_200_WITH_DELIMITER = "HTTP/1.1 200 OK\r\n\r\n"
@@ -52,13 +53,7 @@ def build_response(response_lines: list, body: str = None) -> str:
     return response
 
 
-def main():
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!")
-
-    # Uncomment this to pass the first stage
-    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    client_socket, client_addr = server_socket.accept()  # wait for client
+def handle_client_connection(client_socket, client_addr):
     print(f"Connection from {client_addr}")
 
     with client_socket:
@@ -86,6 +81,22 @@ def main():
             response = RESPONSE_LINE_404
 
         client_socket.sendall(response.encode())
+
+
+def main():
+    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
+    print("Server has started...")
+
+    try:
+        while True:
+            client_socket, client_addr = server_socket.accept()  # Wait for client
+            client_thread = threading.Thread(target=handle_client_connection, args=(client_socket, client_addr),
+                                             daemon=True)
+            client_thread.start()
+    except KeyboardInterrupt:
+        print("\nServer shutting down...")
+    finally:
+        server_socket.close()
 
 
 if __name__ == "__main__":
