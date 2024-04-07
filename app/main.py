@@ -22,11 +22,12 @@ RESPONSE_LINE_404 = "HTTP/1.1 404 Not Found\r\n\r\n"
 CONTENT_TYPE_HEADER = "Content-Type: text/plain"
 
 
-def parse_request(received_data: bytes) -> tuple[str, str, str]:
+def parse_request(received_data: bytes) -> tuple[str, str, str, list]:
     decoded = received_data.decode()
     lines = decoded.split("\r\n")
     method, path, version = lines[0].split()
-    return method, path, version
+    headers = lines[1:]
+    return method, path, version, headers
 
 
 def extract_string_from_path(path: str) -> str:
@@ -66,14 +67,21 @@ def main():
         print(f"Received data {received_data}\n")
 
         # parse received data & respond accordingly
-        method, path, version = parse_request(received_data)
+        method, path, version, headers = parse_request(received_data)
         if path == "/":
             response = RESPONSE_LINE_200_WITH_DELIMITER
         elif "echo" in path:
             path_string = extract_string_from_path(path)
             response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
                                       path_string)
-            print(response)
+        elif "user-agent" in path:
+            for header in headers:
+                if "user-agent" in header.lower():
+                    agent = header.split(":")[-1].strip()
+                    response = build_response(
+                        [RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(agent)}"],
+                        agent)
+                    break
         else:
             response = RESPONSE_LINE_404
 
