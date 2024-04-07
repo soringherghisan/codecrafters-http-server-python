@@ -15,7 +15,8 @@ Here's what the contents of a HTTP request look like:
 # Uncomment this to pass the first stage
 import socket
 
-RESPONSE_LINE_200 = "HTTP/1.1 200 OK\r\n\r\n"
+RESPONSE_LINE_200 = "HTTP/1.1 200 OK"
+RESPONSE_LINE_200_WITH_DELIMITER = "HTTP/1.1 200 OK\r\n\r\n"
 RESPONSE_LINE_404 = "HTTP/1.1 404 Not Found\r\n\r\n"
 #
 CONTENT_TYPE_HEADER = "Content-Type: text/plain"
@@ -67,7 +68,7 @@ def main():
         # parse received data & respond accordingly
         method, path, version = parse_request(received_data)
         if path == "/":
-            response = RESPONSE_LINE_200
+            response = RESPONSE_LINE_200_WITH_DELIMITER
         else:
             path_string = extract_string_from_path(path)
             response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
