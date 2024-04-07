@@ -46,7 +46,7 @@ def build_response(response_lines: list, body: str = None) -> str:
     """
     response = "\r\n".join(response_lines)
     if body:
-        response += f"\r\n\r\n{body}"
+        response += f"\r\n\r\n{body}\r\n\r\n"
     return response
 
 
@@ -69,6 +69,7 @@ def main():
         path_string = extract_string_from_path(path)
         response = build_response([RESPONSE_LINE_200, CONTENT_TYPE_HEADER, f"Content-Length: {len(path_string)}"],
                                   path_string)
+        print(response)
         client_socket.sendall(response.encode())
 
 
