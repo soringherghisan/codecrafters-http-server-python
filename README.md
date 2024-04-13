@@ -1,5 +1,6 @@
-# A toy HTTP server made with Python.
+# A toy HTTP server made with Python
 Done via the tutorial from codecrafters.io -> https://app.codecrafters.io/courses/http-server
+
 It has some basic functionality:
 * read/parse http status line and headers 
 * read/parse payload of Post requests
